@@ -1,12 +1,10 @@
 # Publishes @clawnify/html-to-image to npm on GitHub Release.
-# Active once this package lives in its own repository (this file must sit at
-# the repo root to run). Requires an NPM_TOKEN secret with publish rights.
-name: Publish
+# Requires an NPM_TOKEN secret (repo or clawnify-org level) with publish rights.
+name: Publish to npm
 
 on:
   release:
     types: [published]
-  workflow_dispatch:
 
 jobs:
   publish:
@@ -22,9 +20,11 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - run: npm install
+      - run: npm ci
 
       - run: npm run build
+
+      - run: npm test
 
       - run: npm publish --provenance --access public
         env:
