@@ -1,0 +1,67 @@
+{
+  "name": "@clawnify/html-to-image",
+  "version": "0.1.0",
+  "description": "OpenClaw plugin — render an HTML string to a PNG file on disk (Satori + resvg, no headless browser). Lets agents turn HTML/CSS into images (status cards, summaries, simple charts) they can attach to any channel.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.5.2",
+      "minGatewayVersion": ">=2026.5.2"
+    },
+    "build": {
+      "openclawVersion": "2026.6.5"
+    }
+  },
+  "files": [
+    "dist",
+    "fonts",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "clawnify",
+    "html-to-image",
+    "satori",
+    "og-image",
+    "screenshot",
+    "ai-agents"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/clawnify/html-to-image.git"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "satori": "^0.26.0",
+    "satori-html": "^0.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.11",
+    "typescript": "^5.9.3"
+  }
+}
