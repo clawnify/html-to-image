@@ -15,7 +15,7 @@ engine behind Open Graph images — **not a web browser**. It supports a small,
 strict **flexbox subset of CSS**. Most "the image came out wrong" problems are
 one of the mistakes below. Follow these rules and it works the first time.
 
-## The five rules (break one and you get garbage)
+## The six rules (break one and you get garbage)
 
 1. **Inline styles only.** Put every style in a `style="…"` attribute on the
    element itself. **`<style>` blocks and CSS classes are silently ignored** —
@@ -30,12 +30,19 @@ one of the mistakes below. Follow these rules and it works the first time.
 3. **No JavaScript, no remote images.** Scripts don't run. `<img src="https://…">`
    is **not fetched** — embed images as `data:` URIs, or draw with CSS (colored
    `div`s, gradients, initials-in-a-circle).
-4. **Fonts:** the bundled family is **Inter** (weights 400 & 700, Latin only).
-   Set `font-family:Inter`. **Emoji are not painted** (they come out as boxes/☰)
-   unless you supply an emoji font — avoid 🥇/📡 etc.; use text or CSS shapes.
-5. **Size with `width`, let height auto-grow.** Pass the tool a `width` and omit
-   `height` so the canvas grows to fit — that way content can never be clipped
-   vertically. The root element should also set an explicit pixel `width`.
+4. **Fonts & emoji:** the bundled family is **Inter** (weights 400 & 700, Latin
+   only), and Satori paints glyphs *only* from the fonts it's given — it never
+   uses the OS's fonts. So **emoji render as blank boxes** (▯), the same on every
+   machine — 🥇/📡/📊 will *not* work. Don't use them; draw icons with CSS (a
+   rounded `div` + inner bars/shapes) or use text. The tool returns a `warnings`
+   entry when it spots emoji. Non-Latin scripts (CJK, Arabic, …) likewise need
+   their own `fonts`.
+5. **Write text as raw characters** — including `&`. HTML entities are **not
+   decoded**: `&amp;` shows literally as "&amp;", not "&". So type `A & B`, not
+   `A &amp; B`.
+6. **Size with `width`, let height auto-grow.** Pass the tool a `width` and omit
+   `height` so the canvas grows to fit — that way content can't be clipped by the
+   image edge. The root element should also set an explicit pixel `width`.
 
 ## The tool call
 
@@ -52,8 +59,15 @@ html_to_image({
 
 - It writes a PNG and returns the `path`. **Delivery is up to you** — upload it,
   attach it, `[file:…]` it, whatever the channel needs.
-- **Check `overflow`.** `false` means everything fit. Otherwise it lists the
-  clipped nodes — re-render with a larger `width`.
+- **Check `overflow`.** `false` means everything fit. Otherwise each clipped node
+  carries a `by`: `"canvas"` = wider/taller than the image → re-render with a
+  larger `width`; `"container"` = a fixed-width cell or shrunk column is
+  truncating its content → **widen that element** (give the column more room or a
+  larger `width`), not just the image. (One case slips through: text hidden by an
+  explicit `overflow:hidden` + `white-space:nowrap` on the element itself — Satori
+  clamps it silently, so keep such columns wide enough by design.)
+- **Check `warnings`.** Non-fatal notes about input that rendered but probably not
+  as intended — today, emoji. If present, fix and re-render.
 - **On an error, read the message** — it tells you exactly which rule you broke
   (a `<style>` block, a raw CSS string, or a missing `display:flex`). Fix and
   re-render; do **not** fall back to plain text.
@@ -141,5 +155,7 @@ Set `background:"#ffffff"` in the tool call when your text is dark.
 | Error: "explicit display: flex" | A multi-child element has no display | Add `display:flex` (or `+flex-direction:column`) to that element. |
 | Image is blank / just a background | Content has no `display:flex` so it collapsed | Give text/child containers `display:flex`. |
 | Dark text on transparent → invisible | No background | Pass `background:"#ffffff"` (or set it on the root). |
-| Boxes/☰ where emoji should be | No emoji font | Remove emoji; use text labels or CSS shapes. |
-| Content cut off on the right (`overflow`) | Canvas too narrow | Re-render with a larger `width`. |
+| Blank boxes ▯ where emoji should be | No emoji font (bundled Inter is Latin-only) | Remove emoji; use text or CSS-drawn icons. Shows as a `warnings` entry. |
+| Literal `&amp;` / `&lt;` in the text | HTML entities aren't decoded | Write the raw character (`&`), not the entity. |
+| `overflow.by:"canvas"` | Content wider/taller than the image | Re-render with a larger `width` (or `height`). |
+| `overflow.by:"container"` | A fixed-width cell / shrunk column truncates content | Widen that element — more column room, or a larger canvas `width`. |

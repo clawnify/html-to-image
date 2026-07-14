@@ -2,7 +2,7 @@
   "id": "html-to-image",
   "name": "HTML to Image",
   "description": "Render an HTML string to a PNG file on disk (Satori + resvg, no headless browser). Registers the html_to_image tool.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "activation": {
     "onStartup": true
   },
