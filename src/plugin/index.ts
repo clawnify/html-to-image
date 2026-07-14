@@ -108,11 +108,15 @@ const plugin = {
             width: res.width,
             height: res.height,
             bytes: res.buffer.length,
-            // Non-fatal: the image was written, but flags clipped content so the
-            // agent can re-render with a larger width/height if it matters.
+            // Non-fatal: the image was written, but flags clipped content (by the
+            // image edge or a container) so the agent can widen/re-render if it
+            // matters. A `by:"container"` clip means a column/cell is truncating —
+            // widen that element, not just the image.
             overflow: res.overflow.horizontal || res.overflow.vertical
               ? res.overflow
               : false,
+            // Non-fatal advisories (e.g. emoji that render as blank boxes).
+            ...(res.warnings.length ? { warnings: res.warnings } : {}),
           });
         } catch (err) {
           return errorResult(`html_to_image failed: ${err instanceof Error ? err.message : String(err)}`);

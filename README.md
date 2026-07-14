@@ -49,11 +49,16 @@ const { path, width, height } = await htmlToImage(
 );
 ```
 
-Returns `{ buffer, path?, width, height, overflow }`.
+Returns `{ buffer, path?, width, height, overflow, warnings }`.
 
 ## Overflow detection
 
-Satori silently **clips** anything larger than the image — it doesn't error — which is an easy way to ship a card with a cut-off heading. So every render measures each element's box against the canvas and reports it:
+Satori silently **clips** overflowing content — it doesn't error — which is an easy way to ship a card with a cut-off heading. So every render measures each element's box and reports clips, tagging **what** cut each node off:
+
+- `by: "canvas"` — the node is wider/taller than the image. Re-render with a larger `width`/`height`.
+- `by: "container"` — the node fits the image but overflows a **constrained ancestor** (a fixed-width cell, or a shrunk `flex`/`min-width:0` column). A canvas-only check misses these — they're the usual "why is my column text cut off?" case. Widen that ancestor, not just the image.
+
+(One clip still slips through: text hidden by an explicit `overflow:hidden` + `white-space:nowrap` *on the element itself* — Satori clamps the box before we can measure it. Keep such columns wide by design.)
 
 ```jsonc
 "overflow": {
@@ -90,8 +95,8 @@ Satori supports a **flexbox subset of CSS** — think Open Graph image, not a fu
 - Every element containing text or children should set `display: flex`.
 - Use **inline styles**. No stylesheets, no `<style>` cascade, no class-based CSS.
 - **No JavaScript** runs, and remote `<img src="https://…">` is not fetched — embed images as `data:` URIs.
-- Text uses the bundled **Inter** (latin). Pass your own `fonts` for other families or scripts.
-- Emoji are not painted unless you supply an emoji font or grapheme images.
+- **Write raw characters, not HTML entities** — `&amp;` renders literally as `&amp;`, not `&`.
+- Text uses the bundled **Inter** (Latin). Satori paints glyphs **only** from the fonts you give it — it never falls back to the OS — so **emoji render as blank boxes** (the tool returns a `warnings` note), the same on every machine. Draw icons with CSS, or pass a `fonts` array with an emoji font. Non-Latin scripts likewise need their own `fonts`.
 
 If a layout looks wrong, it's almost always a missing `display: flex` on a container.
 

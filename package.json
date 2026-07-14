@@ -1,6 +1,6 @@
 {
   "name": "@clawnify/html-to-image",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "OpenClaw plugin — render an HTML string to a PNG file on disk (Satori + resvg, no headless browser). Lets agents turn HTML/CSS into images (status cards, summaries, simple charts) they can attach to any channel.",
   "type": "module",
   "main": "./dist/index.js",
