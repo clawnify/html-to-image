@@ -108,10 +108,8 @@ const plugin = {
             width: res.width,
             height: res.height,
             bytes: res.buffer.length,
-            // Non-fatal: the image was written, but flags clipped content (by the
-            // image edge or a container) so the agent can widen/re-render if it
-            // matters. A `by:"container"` clip means a column/cell is truncating —
-            // widen that element, not just the image.
+            // Non-fatal: the image was written, but flags content clipped by the
+            // image edge so the agent can re-render with a larger width/height.
             overflow: res.overflow.horizontal || res.overflow.vertical
               ? res.overflow
               : false,

@@ -59,13 +59,11 @@ html_to_image({
 
 - It writes a PNG and returns the `path`. **Delivery is up to you** — upload it,
   attach it, `[file:…]` it, whatever the channel needs.
-- **Check `overflow`.** `false` means everything fit. Otherwise each clipped node
-  carries a `by`: `"canvas"` = wider/taller than the image → re-render with a
-  larger `width`; `"container"` = a fixed-width cell or shrunk column is
-  truncating its content → **widen that element** (give the column more room or a
-  larger `width`), not just the image. (One case slips through: text hidden by an
-  explicit `overflow:hidden` + `white-space:nowrap` on the element itself — Satori
-  clamps it silently, so keep such columns wide enough by design.)
+- **Check `overflow`.** `false` means everything fit the image. Otherwise it lists
+  the clipped nodes — re-render with a larger `width` (or `height`). It measures
+  against the *image* only: content truncated *inside* the layout (a narrow
+  column, a fixed-width cell) is not reported — so keep columns wide by design,
+  give text room, and use `width:` generously.
 - **Check `warnings`.** Non-fatal notes about input that rendered but probably not
   as intended — today, emoji. If present, fix and re-render.
 - **On an error, read the message** — it tells you exactly which rule you broke
@@ -157,5 +155,5 @@ Set `background:"#ffffff"` in the tool call when your text is dark.
 | Dark text on transparent → invisible | No background | Pass `background:"#ffffff"` (or set it on the root). |
 | Blank boxes ▯ where emoji should be | No emoji font (bundled Inter is Latin-only) | Remove emoji; use text or CSS-drawn icons. Shows as a `warnings` entry. |
 | Literal `&amp;` / `&lt;` in the text | HTML entities aren't decoded | Write the raw character (`&`), not the entity. |
-| `overflow.by:"canvas"` | Content wider/taller than the image | Re-render with a larger `width` (or `height`). |
-| `overflow.by:"container"` | A fixed-width cell / shrunk column truncates content | Widen that element — more column room, or a larger canvas `width`. |
+| `overflow` not `false` | Content wider/taller than the image | Re-render with a larger `width` (or `height`). |
+| Column/cell text cut off (not in `overflow`) | Content truncated inside the layout, not the image | Widen that column/cell; the image-level `overflow` check can't see it. |

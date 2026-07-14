@@ -53,12 +53,9 @@ Returns `{ buffer, path?, width, height, overflow, warnings }`.
 
 ## Overflow detection
 
-Satori silently **clips** overflowing content — it doesn't error — which is an easy way to ship a card with a cut-off heading. So every render measures each element's box and reports clips, tagging **what** cut each node off:
+Satori silently **clips** anything larger than the image — it doesn't error — which is an easy way to ship a card with a cut-off heading. So every render measures each element's box against the canvas and reports it:
 
-- `by: "canvas"` — the node is wider/taller than the image. Re-render with a larger `width`/`height`.
-- `by: "container"` — the node fits the image but overflows a **constrained ancestor** (a fixed-width cell, or a shrunk `flex`/`min-width:0` column). A canvas-only check misses these — they're the usual "why is my column text cut off?" case. Widen that ancestor, not just the image.
-
-(One clip still slips through: text hidden by an explicit `overflow:hidden` + `white-space:nowrap` *on the element itself* — Satori clamps the box before we can measure it. Keep such columns wide by design.)
+This measures against the **image** only. Content truncated *inside* the layout — a narrow column or a fixed-width cell that still fits the image — is **not** reported: Satori exposes no reliable way to tell that apart from ordinary overlap (an overlapping avatar stack looks the same to a geometry check), so guessing it produces false positives. Keep columns wide by design instead.
 
 ```jsonc
 "overflow": {
