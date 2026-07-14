@@ -71,29 +71,18 @@ test("plain text (no tags, no CSS rules) still renders", async () => {
   assert.deepEqual([...res.buffer.subarray(0, 4)], PNG_MAGIC);
 });
 
-test("flags content clipped by a fixed-width ancestor (fits the canvas)", async () => {
-  const res = await htmlToImage(
-    "<div style='display:flex;width:1200px;font-family:Inter'><div style='display:flex;width:300px;height:60px'><div style='display:flex;flex-shrink:0;width:900px;height:60px'>x</div></div></div>",
-    { width: 1200 },
-  );
-  assert.equal(res.overflow.horizontal, true);
-  assert.equal(res.overflow.clipped[0].by, "container");
-});
-
-test("canvas overflow is tagged by:'canvas'", async () => {
-  const res = await htmlToImage(
-    "<div style='display:flex;width:1400px;height:60px;font-family:Inter'>wide</div>",
-    { width: 1200 },
-  );
-  assert.equal(res.overflow.horizontal, true);
-  assert.equal(res.overflow.clipped[0].by, "canvas");
-});
-
-test("a well-formed multi-row card does not false-positive", async () => {
+test("a well-formed card — incl. overlapping avatars — does not false-positive", async () => {
+  // Overlapping siblings (negative margins) are a normal card pattern; the
+  // canvas-only overflow check must not flag them.
+  const avatars =
+    "<div style='display:flex'>" +
+    "<div style='display:flex;width:40px;height:40px;border-radius:20px;background:#14b8a6'></div>" +
+    "<div style='display:flex;width:40px;height:40px;border-radius:20px;background:#f59e0b;margin-left:-14px'></div>" +
+    "<div style='display:flex;width:40px;height:40px;border-radius:20px;background:#ef4444;margin-left:-14px'></div>" +
+    "</div>";
   const row = (n) =>
     `<div style='display:flex;align-items:center;gap:14px;padding:14px'>` +
-    `<div style='display:flex;width:26px;font-size:16px'>${n}</div>` +
-    `<div style='display:flex;width:40px;height:40px;border-radius:20px;background:#14b8a6'></div>` +
+    `<div style='display:flex;width:26px;font-size:16px'>${n}</div>${avatars}` +
     `<div style='display:flex;flex-direction:column;flex:1;min-width:0'>` +
     `<div style='display:flex;font-size:15px'>Name ${n}</div>` +
     `<div style='display:flex;font-size:12px'>Title ${n}</div></div>` +

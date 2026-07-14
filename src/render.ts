@@ -48,7 +48,7 @@ export interface HtmlToImageOptions {
   outputPath?: string;
 }
 
-/** A node whose box is clipped — by the image edge or by a constrained ancestor. */
+/** A node whose box extends past the image edge (and is therefore clipped). */
 export interface ClippedNode {
   type: string;
   /** Text content, if this is a text node. */
@@ -57,27 +57,23 @@ export interface ClippedNode {
   right: number;
   /** Bottom edge in CSS px (top + height). */
   bottom: number;
-  /**
-   * What cut it off: `"canvas"` = wider/taller than the image (re-render bigger);
-   * `"container"` = fits the image but overflows a fixed-size / shrunk ancestor
-   * (a truncated column or cell — widen that ancestor, don't just grow the image).
-   */
-  by: "canvas" | "container";
 }
 
 /**
- * Whether any content gets clipped — either by the image bounds (`"canvas"`) or
- * by a constrained ancestor it overflows (`"container"`: a fixed-width cell or a
- * shrunk `flex`/`min-width:0` column whose text is truncated, which a canvas-only
- * check misses). All measurements are in CSS pixels (pre-`scale`), matching the
- * values you pass in. Canvas *vertical* overflow is impossible when `height` is
- * omitted (auto-height grows to fit) — but container-vertical clips are still
- * caught even then.
+ * Whether any content spills past the image bounds and gets clipped. All
+ * measurements are in CSS pixels (pre-`scale`), matching the values you pass in.
+ * `vertical` is always false when `height` is omitted, because auto-height grows
+ * the canvas to fit the content — only a *fixed* `height` can clip vertically.
+ *
+ * Note: this measures against the *image* only. Content clipped *inside* the
+ * layout — a truncated column or a fixed-width cell that still fits the image —
+ * is not reported (Satori exposes no reliable way to tell that apart from normal
+ * overlap). Keep columns wide by design; see the html-to-image skill.
  */
 export interface OverflowReport {
-  /** Something is clipped horizontally — by the image edge or a container. */
+  /** Content is wider than the image and clipped on the right. */
   horizontal: boolean;
-  /** Something is clipped vertically — by a fixed-height image or a container. */
+  /** Content is taller than a fixed-height image and clipped at the bottom. */
   vertical: boolean;
   /** Widest right edge observed across all nodes (CSS px). */
   contentWidth: number;
@@ -98,7 +94,7 @@ export interface HtmlToImageResult {
   /** Actual output pixel dimensions (after `scale`). */
   width: number;
   height: number;
-  /** Whether any element is clipped (by the image bounds or a container). */
+  /** Whether any element is clipped by the image bounds. */
   overflow: OverflowReport;
   /**
    * Non-fatal advisories about the input that rendered but probably not as
@@ -120,30 +116,6 @@ interface DetectedNode {
 // Sub-pixel rounding means boxes land a hair over the edge; ignore <1px spill.
 const OVERFLOW_EPSILON = 1;
 
-// Satori reports each node's *pre-clip* layout box in tree (pre-order) sequence,
-// so a node's nearest enclosing ancestor is the most recent earlier node that
-// contains its top-left origin. Returns that ancestor's index, or -1.
-function enclosingAncestor(nodes: DetectedNode[], i: number): number {
-  const n = nodes[i];
-  for (let j = i - 1; j >= 0; j--) {
-    const a = nodes[j];
-    const aRight = a.left + a.width;
-    const aBottom = a.top + a.height;
-    // Origin must be STRICTLY inside `a`, not merely touching its right/bottom
-    // edge — otherwise an adjacent sibling (the previous line in a column, the
-    // previous cell in a row) that N butts up against reads as a container.
-    if (
-      a.left <= n.left + OVERFLOW_EPSILON &&
-      a.top <= n.top + OVERFLOW_EPSILON &&
-      n.left < aRight - OVERFLOW_EPSILON &&
-      n.top < aBottom - OVERFLOW_EPSILON
-    ) {
-      return j;
-    }
-  }
-  return -1;
-}
-
 function measureOverflow(
   nodes: DetectedNode[],
   canvasWidth: number,
@@ -151,58 +123,32 @@ function measureOverflow(
 ): OverflowReport {
   let contentWidth = 0;
   let contentHeight = 0;
-  let horizontal = false;
-  let vertical = false;
   const clipped: (ClippedNode & { over: number })[] = [];
 
-  for (let i = 0; i < nodes.length; i++) {
-    const n = nodes[i];
+  for (const n of nodes) {
     const right = n.left + n.width;
     const bottom = n.top + n.height;
     if (right > contentWidth) contentWidth = right;
     if (bottom > contentHeight) contentHeight = bottom;
 
-    // 1. Clipped by the image edge.
     const overX = right - canvasWidth;
     const overY = canvasHeight == null ? 0 : bottom - canvasHeight;
     if (overX > OVERFLOW_EPSILON || overY > OVERFLOW_EPSILON) {
-      if (overX > OVERFLOW_EPSILON) horizontal = true;
-      if (overY > OVERFLOW_EPSILON) vertical = true;
       clipped.push({
-        type: n.type, text: n.textContent,
-        right: Math.round(right), bottom: Math.round(bottom),
-        by: "canvas", over: Math.max(overX, overY),
+        type: n.type,
+        text: n.textContent,
+        right: Math.round(right),
+        bottom: Math.round(bottom),
+        over: Math.max(overX, overY),
       });
-      continue; // canvas clip subsumes any ancestor clip for this node
-    }
-
-    // 2. Clipped by a constrained ancestor it overflows (fits the canvas, but
-    //    e.g. a truncated column or fixed-width cell). A canvas-only check
-    //    misses these — they're the most common "why is my text cut off?" case.
-    const ai = enclosingAncestor(nodes, i);
-    if (ai >= 0) {
-      const a = nodes[ai];
-      const aRight = a.left + a.width;
-      const aBottom = a.top + a.height;
-      const cOverX = right - aRight;
-      const cOverY = bottom - aBottom;
-      if (cOverX > OVERFLOW_EPSILON || cOverY > OVERFLOW_EPSILON) {
-        if (cOverX > OVERFLOW_EPSILON) horizontal = true;
-        if (cOverY > OVERFLOW_EPSILON) vertical = true;
-        clipped.push({
-          type: n.type, text: n.textContent,
-          right: Math.round(right), bottom: Math.round(bottom),
-          by: "container", over: Math.max(cOverX, cOverY),
-        });
-      }
     }
   }
 
   clipped.sort((a, b) => b.over - a.over);
 
   return {
-    horizontal,
-    vertical,
+    horizontal: contentWidth - canvasWidth > OVERFLOW_EPSILON,
+    vertical: canvasHeight != null && contentHeight - canvasHeight > OVERFLOW_EPSILON,
     contentWidth: Math.round(contentWidth),
     contentHeight: Math.round(contentHeight),
     canvasWidth,
