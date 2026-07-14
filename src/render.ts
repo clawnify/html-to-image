@@ -146,6 +146,58 @@ function measureOverflow(
   };
 }
 
+// Satori honors only INLINE `style="…"` on a flexbox CSS subset. It silently
+// drops `<style>` blocks and class selectors, and renders anything that isn't
+// element markup as literal text. Those two mistakes produce a "successful"
+// PNG of garbage (a CSS dump, or unstyled black text) with no error — the worst
+// failure mode for an agent, which then ships it believing it worked. Catch
+// both up front with a message that says exactly what to do instead.
+const STYLE_BLOCK = /<style[\s>]/i;
+const HTML_TAG = /<[a-z!/][^>]*>/i;
+const CSS_RULE = /[^{}]+\{[^{}]*:[^{}]*\}/; // `selector { prop: value }`
+
+/**
+ * Throw a clear, actionable error for the two inputs Satori renders as garbage
+ * without erroring: a `<style>` block (CSS is dropped) and a raw CSS stylesheet
+ * with no HTML (rendered as literal text).
+ */
+export function assertRenderableHtml(html: string): void {
+  if (STYLE_BLOCK.test(html)) {
+    throw new Error(
+      "input contains a <style> block, which Satori ignores — it only applies " +
+        'INLINE styles. Move every rule onto its element as a style="" attribute ' +
+        '(e.g. <div style="display:flex;color:#fff">), drop the <style> block and ' +
+        "CSS classes, and re-render. See the html-to-image skill for examples.",
+    );
+  }
+  if (!HTML_TAG.test(html) && CSS_RULE.test(html)) {
+    throw new Error(
+      "input looks like a raw CSS stylesheet, not HTML — Satori would render it " +
+        "as literal text. Pass HTML elements with inline styles instead " +
+        '(e.g. <div style="display:flex;padding:24px;font-family:Inter">…</div>). ' +
+        "See the html-to-image skill for examples.",
+    );
+  }
+}
+
+/**
+ * Satori's own layout error for a non-flex container with multiple children is
+ * cryptic ("Expected <div> to have explicit ...") — rewrite it to say why and
+ * how to fix it. Returns the original error unchanged if it doesn't match.
+ */
+function explainSatoriError(err: unknown): Error {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/explicit "display: ?flex"|display: ?flex.*more than one child/i.test(message)) {
+    return new Error(
+      message +
+        " — Satori only does flex layout, so any element with more than one child " +
+        'needs an explicit display. Add style="display:flex" (rows) or ' +
+        '"display:flex;flex-direction:column" (stacks) to that element.',
+    );
+  }
+  return err instanceof Error ? err : new Error(message);
+}
+
 let defaultFontsCache: FontInput[] | null = null;
 function defaultFonts(): FontInput[] {
   if (!defaultFontsCache) {
@@ -163,6 +215,7 @@ export async function htmlToImage(
   options: HtmlToImageOptions = {},
 ): Promise<HtmlToImageResult> {
   if (!html || !html.trim()) throw new Error("html must be a non-empty string");
+  assertRenderableHtml(html);
 
   const width = options.width ?? 1200;
   const scale = options.scale ?? 2;
@@ -192,7 +245,12 @@ export async function htmlToImage(
 
   // satori-html's node shape and Satori's ReactNode type don't line up in TS,
   // but they're compatible at runtime — this is the documented Node pairing.
-  const svg = await satori(markup as unknown as never, satoriOptions as never);
+  let svg: string;
+  try {
+    svg = await satori(markup as unknown as never, satoriOptions as never);
+  } catch (err) {
+    throw explainSatoriError(err);
+  }
 
   const resvg = new Resvg(svg, {
     fitTo: { mode: "zoom", value: scale },

@@ -43,3 +43,30 @@ test("flags vertical overflow when a fixed height is too small", async () => {
 test("rejects empty html", async () => {
   await assert.rejects(() => htmlToImage("   "), /non-empty/);
 });
+
+test("rejects a <style> block with an actionable message", async () => {
+  await assert.rejects(
+    () => htmlToImage("<style>.card{display:flex}</style><div class='card'>hi</div>"),
+    /<style> block.*INLINE/s,
+  );
+});
+
+test("rejects a raw CSS stylesheet passed as html", async () => {
+  await assert.rejects(
+    () => htmlToImage("body { display: flex; background: #0f172a; } .card { padding: 24px; }"),
+    /raw CSS stylesheet/,
+  );
+});
+
+test("explains Satori's cryptic multi-child display error", async () => {
+  await assert.rejects(
+    // A div with two children and no display:flex — Satori's own error.
+    () => htmlToImage("<div style='font-family:Inter'><div>a</div><div>b</div></div>"),
+    /Satori only does flex layout/,
+  );
+});
+
+test("plain text (no tags, no CSS rules) still renders", async () => {
+  const res = await htmlToImage("Deploy succeeded");
+  assert.deepEqual([...res.buffer.subarray(0, 4)], PNG_MAGIC);
+});

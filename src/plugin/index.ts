@@ -34,8 +34,11 @@ const DESCRIPTION = [
   "Render an HTML string to a PNG image file on disk and return its path.",
   "Use this to turn HTML/CSS into an image you can attach to a message, email, or channel —",
   "e.g. a status-update card, a summary, or a simple chart.",
-  "Renders a flexbox CSS subset (like Open Graph images): use inline styles and flex layouts;",
-  "no JavaScript runs and remote <img> URLs are not fetched (use data: URIs for images).",
+  "CRITICAL: this renders a flexbox CSS subset with Satori (like an Open Graph image), NOT a browser.",
+  'Style every element with INLINE style="" attributes — <style> blocks and CSS classes are IGNORED,',
+  "and any element with more than one child needs an explicit display:flex. No JavaScript runs and",
+  "remote <img> URLs are not fetched (use data: URIs). If you are building anything beyond a single",
+  "styled box, read the `html-to-image` skill first — it has copy-paste card/table/receipt examples.",
   "The result reports `overflow` when any element is clipped by the image bounds —",
   "if so, re-render with a larger width/height. The returned file is yours to send however",
   "you like (upload it, attach it, reference it).",
@@ -57,7 +60,9 @@ const plugin = {
           html: {
             type: "string",
             description:
-              "The HTML markup to render. Use inline CSS. The root element should set its width and background.",
+              'HTML markup with INLINE styles only (style="…" on each element). ' +
+              "No <style> blocks, no CSS classes, no <img> URLs — Satori ignores them. " +
+              "Give the root element display:flex and a width; give any multi-child element display:flex.",
           },
           width: {
             type: "number",

@@ -23,6 +23,19 @@ openclaw plugins list | grep html-to-image     # → enabled
 
 The gateway loads it at startup and the `html_to_image` tool becomes available to agents.
 
+### Bundled skill
+
+Installing the plugin also publishes an **`html-to-image` skill** (to
+`~/.openclaw/plugin-skills/html-to-image/`). Agents read it on demand — before
+building anything more than a single styled box — and it carries the flexbox-CSS
+rules plus copy-paste **card / leaderboard / receipt** examples. This is where
+agents learn *how to write HTML that Satori accepts*, so the always-loaded tool
+description stays short.
+
+```bash
+openclaw skills list | grep html-to-image      # → ✓ ready
+```
+
 ## Use as a library
 
 ```ts
@@ -81,6 +94,13 @@ Satori supports a **flexbox subset of CSS** — think Open Graph image, not a fu
 - Emoji are not painted unless you supply an emoji font or grapheme images.
 
 If a layout looks wrong, it's almost always a missing `display: flex` on a container.
+
+The two mistakes that silently produce a *garbage* PNG (a CSS dump, or unstyled
+text) rather than an error are now caught up front: passing a **`<style>` block**
+or a **raw CSS stylesheet** as the `html` throws with a message telling you to
+inline the styles. Satori's own cryptic "explicit `display: flex`" layout error
+is also rewritten to say which element needs the `display`. So a bad render fails
+loud instead of shipping something broken.
 
 ## How it works
 
